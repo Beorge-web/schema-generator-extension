@@ -8,6 +8,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "jsonschema": "^1.5.0",
     "preact": "^10.19.3",
     "preact-router": "^4.1.2"
   },

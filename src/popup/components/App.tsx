@@ -1,8 +1,10 @@
 /** @jsxImportSource preact */
-import { useState, useEffect } from "preact/hooks";
+import { useState, useEffect, useCallback } from "preact/hooks";
 import { RequestList } from "./RequestList";
 import { Preview } from "./Preview";
 import { SchemaType } from "../types";
+
+type RequestTypeFilter = 'all' | 'fetch';
 
 export function App() {
   const [isMonitoring, setIsMonitoring] = useState(false);
@@ -11,6 +13,46 @@ export function App() {
   const [selectedRequest, setSelectedRequest] = useState<any | null>(null);
   const [schemaType, setSchemaType] = useState<SchemaType>("joi");
   const [filter, setFilter] = useState("");
+  const [filteredRequests, setFilteredRequests] = useState<any[]>([]);
+  const [requestTypeFilter, setRequestTypeFilter] = useState<RequestTypeFilter>('fetch');
+  const [currentChunk, setCurrentChunk] = useState(0);
+  const [totalChunks, setTotalChunks] = useState(1);
+
+  // Function to fetch a specific chunk of requests
+  const fetchRequestChunk = async (tabId: number, chunkIndex: number) => {
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: "GET_REQUESTS",
+        tabId,
+        chunkIndex,
+      });
+      
+      if (response.requests) {
+        if (chunkIndex === 0) {
+          setRequests(response.requests);
+        } else {
+          setRequests(prev => [...prev, ...response.requests]);
+        }
+        setTotalChunks(response.totalChunks);
+        setCurrentChunk(response.currentChunk);
+      }
+    } catch (error) {
+      console.error("Error fetching requests chunk:", error);
+    }
+  };
+
+  // Separate effect for filtering to avoid unnecessary work during monitoring updates
+  useEffect(() => {
+    if (!filter) {
+      setFilteredRequests(requests);
+      return;
+    }
+    const lowerFilter = filter.toLowerCase();
+    const filtered = requests.filter((request) => 
+      request.url.toLowerCase().includes(lowerFilter)
+    );
+    setFilteredRequests(filtered);
+  }, [filter, requests]);
 
   useEffect(() => {
     // Get current tab and monitoring state when popup opens
@@ -27,23 +69,17 @@ export function App() {
         
         if (response.monitoringState) {
           setIsMonitoring(response.monitoringState.isMonitoring);
-          // Get requests for this specific tab
-          const requestsResponse = await chrome.runtime.sendMessage({
-            type: "GET_REQUESTS",
-            tabId,
-          });
-          if (requestsResponse.requests) {
-            setRequests(requestsResponse.requests);
-          }
+          // Get first chunk of requests
+          await fetchRequestChunk(tabId, 0);
         }
       }
     });
 
-    // Cleanup function
     return () => {
       setRequests([]);
       setSelectedRequest(null);
-      setFilter("");
+      setCurrentChunk(0);
+      setTotalChunks(1);
     };
   }, []);
 
@@ -52,13 +88,7 @@ export function App() {
 
     if (isMonitoring && currentTabId) {
       const updateRequests = async () => {
-        const response = await chrome.runtime.sendMessage({
-          type: "GET_REQUESTS",
-          tabId: currentTabId,
-        });
-        if (response.requests) {
-          setRequests(response.requests);
-        }
+        await fetchRequestChunk(currentTabId, 0);
       };
 
       updateRequests();
@@ -72,19 +102,28 @@ export function App() {
     };
   }, [isMonitoring, currentTabId]);
 
+  // Load more requests when scrolling
+  const handleLoadMore = useCallback(async () => {
+    if (currentTabId && currentChunk < totalChunks - 1) {
+      await fetchRequestChunk(currentTabId, currentChunk + 1);
+    }
+  }, [currentTabId, currentChunk, totalChunks]);
+
   const handleStartMonitoring = async () => {
     if (!currentTabId) return;
 
     const response = await chrome.runtime.sendMessage({
       type: "START_MONITORING",
       tabId: currentTabId,
+      requestTypeFilter,
     });
 
     if (response.success) {
       setIsMonitoring(true);
       setRequests([]); // Clear requests when starting
       setSelectedRequest(null);
-      setFilter("");
+      setCurrentChunk(0);
+      setTotalChunks(1);
     }
   };
 
@@ -111,18 +150,11 @@ export function App() {
     
     setRequests([]);
     setSelectedRequest(null);
-    setFilter("");
   };
 
   const handleClosePopup = () => {
     window.close();
   };
-
-  const filteredRequests = requests.filter(
-    (request) =>
-      request.url.toLowerCase().includes(filter.toLowerCase()) ||
-      request.method.toLowerCase().includes(filter.toLowerCase())
-  );
 
   return (
     <div class="container">
@@ -161,30 +193,48 @@ export function App() {
         </div>
 
         <div class="filters">
-          <div class="schema-type">
-            <label htmlFor="schemaType">Schema Type:</label>
-            <select
-              id="schemaType"
-              value={schemaType}
-              onChange={(e) => setSchemaType(e.currentTarget.value as SchemaType)}
-            >
-              <option value="joi">Joi</option>
-              <option value="zod">Zod</option>
-            </select>
+          <div class="filters-row">
+            <div class="schema-type">
+              <label>Schema Type:</label>
+              <select
+                value={schemaType}
+                onChange={(e) => setSchemaType(e.currentTarget.value as SchemaType)}
+              >
+                <option value="joi">Joi</option>
+                <option value="zod">Zod</option>
+              </select>
+            </div>
+            <div class="request-type">
+              <label>Monitor:</label>
+              <select
+                value={requestTypeFilter}
+                onChange={(e) => setRequestTypeFilter(e.currentTarget.value as RequestTypeFilter)}
+                disabled={isMonitoring}
+              >
+                <option value="fetch">Fetch/XHR</option>
+                <option value="all">All</option>
+              </select>
+            </div>
           </div>
           <div class="filter-input">
             <input
               type="text"
-              placeholder="Filter requests..."
+              placeholder="Filter by URL..."
               value={filter}
               onChange={(e) => setFilter(e.currentTarget.value)}
+              disabled={isMonitoring}
             />
           </div>
         </div>
       </div>
 
       <div class="request-list-container">
-        <RequestList requests={filteredRequests} onPreview={setSelectedRequest} />
+        <RequestList 
+          requests={filteredRequests} 
+          onPreview={setSelectedRequest}
+          onLoadMore={handleLoadMore}
+          hasMore={currentChunk < totalChunks - 1}
+        />
       </div>
 
       {selectedRequest && (

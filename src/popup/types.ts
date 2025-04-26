@@ -1,8 +1,15 @@
-export type SchemaType = "zod" | "joi";
+export type SchemaType = 'joi' | 'zod';
 
 export interface Request {
   id: string;
   method: string;
   url: string;
-  responseBody: any;
+  type?: string;
+  timestamp: number;
+  responseBody?: {
+    schema?: any;
+    sample?: any;
+    error?: string;
+    details?: string;
+  };
 }

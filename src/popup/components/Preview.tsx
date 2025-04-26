@@ -14,10 +14,33 @@ type Tab = "schema" | "response";
 export function Preview({ request, schemaType, onClose }: PreviewProps) {
   const [activeTab, setActiveTab] = useState<Tab>("schema");
   const [copyStatus, setCopyStatus] = useState("Copy");
+  const [showExamples, setShowExamples] = useState(false);
+
+  // Function to format URL by removing origin
+  const formatUrl = (url: string) => {
+    try {
+      const urlObj = new URL(url);
+      return urlObj.pathname + urlObj.search + urlObj.hash;
+    } catch {
+      return url; // Return original if URL is invalid
+    }
+  };
 
   const getContent = () => {
+    // Check if we have a parsing error
+    if (request.responseBody?.error) {
+      if (activeTab === "schema") {
+        return `// Error: Unable to generate schema\n// ${request.responseBody.error}\n// ${request.responseBody.details}`;
+      }
+      return `// Original response body (failed to parse as JSON):\n${request.responseBody.originalBody}`;
+    }
+
     if (activeTab === "schema") {
-      return generateSchemaFromJson(request.responseBody, schemaType);
+      try {
+        return generateSchemaFromJson(request.responseBody, schemaType, '', { showExamples });
+      } catch (e) {
+        return `// Error: Failed to generate schema\n// ${e instanceof Error ? e.message : String(e)}`;
+      }
     }
     return JSON.stringify(request.responseBody, null, 2);
   };
@@ -32,7 +55,16 @@ export function Preview({ request, schemaType, onClose }: PreviewProps) {
   return (
     <div class="preview-container">
       <div class="preview-header">
-        <h3 class="preview-title">Preview</h3>
+        <div class="preview-header-info">
+          <div class="request-url">
+            <span class="url-path">{formatUrl(request.url)}</span>
+            {request.responseBody?.error && (
+              <span class="error-badge" title={request.responseBody.details}>
+                Failed to parse JSON
+              </span>
+            )}
+          </div>
+        </div>
         <div class="preview-header-actions">
           <button onClick={handleCopy}>{copyStatus}</button>
           <button onClick={onClose} class="secondary-button">Close</button>
@@ -52,6 +84,16 @@ export function Preview({ request, schemaType, onClose }: PreviewProps) {
         >
           Response
         </button>
+        {activeTab === "schema" && (
+          <label class="example-toggle">
+            <input
+              type="checkbox"
+              checked={showExamples}
+              onChange={(e) => setShowExamples(e.currentTarget.checked)}
+            />
+            Show Examples
+          </label>
+        )}
       </div>
 
       <div class="preview-content">
