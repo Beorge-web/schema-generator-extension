@@ -1,22 +1,87 @@
 /** @jsxImportSource preact */
-import { useState, useEffect, useCallback } from "preact/hooks";
+import { useState, useEffect, useCallback, useRef } from "preact/hooks";
+import { JSX } from "preact";
 import { RequestList } from "./RequestList";
 import { Preview } from "./Preview";
-import { SchemaType } from "../types";
+import { CustomJsonInput } from "./CustomJsonInput";
+import { SchemaType, ViewMode } from "../types";
+
+// Debounced filter function type
+type DebouncedFunction = (value: string) => void;
+
+function useDebounceCallback(callback: DebouncedFunction, delay: number): DebouncedFunction {
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  return useCallback((value: string) => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    timeoutRef.current = setTimeout(() => {
+      callback(value);
+    }, delay);
+  }, [callback, delay]);
+}
+
+// Minimal request data for list view
+type RequestListItem = {
+  id: string;
+  url: string;
+  method: string;
+  timestamp: number;
+};
 
 type RequestTypeFilter = 'all' | 'fetch';
 
 export function App() {
+  const [viewMode, setViewMode] = useState<ViewMode>('monitor');
   const [isMonitoring, setIsMonitoring] = useState(false);
   const [currentTabId, setCurrentTabId] = useState<number | null>(null);
-  const [requests, setRequests] = useState<any[]>([]);
+  const [requests, setRequests] = useState<any[]>([]); // Full request data
+  const [requestListItems, setRequestListItems] = useState<RequestListItem[]>([]); // Minimal data for list
+  const [filteredListItems, setFilteredListItems] = useState<RequestListItem[]>([]); // Filtered minimal data
   const [selectedRequest, setSelectedRequest] = useState<any | null>(null);
   const [schemaType, setSchemaType] = useState<SchemaType>("joi");
   const [filter, setFilter] = useState("");
-  const [filteredRequests, setFilteredRequests] = useState<any[]>([]);
   const [requestTypeFilter, setRequestTypeFilter] = useState<RequestTypeFilter>('fetch');
   const [currentChunk, setCurrentChunk] = useState(0);
   const [totalChunks, setTotalChunks] = useState(1);
+
+  // Create filtered items updater
+  const updateFilteredItems = useCallback((searchValue: string) => {
+    if (!searchValue) {
+      setFilteredListItems(requestListItems);
+      return;
+    }
+
+    const lowerFilter = searchValue.toLowerCase();
+    const filtered = requestListItems.reduce((acc, item) => {
+      if (item.url.toLowerCase().includes(lowerFilter)) {
+        acc.push(item);
+      }
+      return acc;
+    }, [] as RequestListItem[]);
+
+    setFilteredListItems(filtered);
+  }, [requestListItems]);
+
+  // Create debounced filter function
+  const debouncedUpdateFilter = useDebounceCallback(updateFilteredItems, 300);
+
+  // Handle input change with correct Preact event type
+  const handleFilterChange = useCallback((e: JSX.TargetedEvent<HTMLInputElement, Event>) => {
+    const value = e.currentTarget.value;
+    setFilter(value);
+    debouncedUpdateFilter(value);
+  }, [debouncedUpdateFilter]);
+
+  // Function to extract minimal request data
+  const createRequestListItem = (request: any): RequestListItem => ({
+    id: request.id,
+    url: request.url,
+    method: request.method,
+    timestamp: request.timestamp
+  });
 
   // Function to fetch a specific chunk of requests
   const fetchRequestChunk = async (tabId: number, chunkIndex: number) => {
@@ -28,11 +93,19 @@ export function App() {
       });
       
       if (response.requests) {
+        const newRequests = response.requests;
+        const newListItems = newRequests.map(createRequestListItem);
+        
         if (chunkIndex === 0) {
-          setRequests(response.requests);
+          setRequests(newRequests);
+          setRequestListItems(newListItems);
+          setFilteredListItems(newListItems);
         } else {
-          setRequests(prev => [...prev, ...response.requests]);
+          setRequests(prev => [...prev, ...newRequests]);
+          setRequestListItems(prev => [...prev, ...newListItems]);
+          setFilteredListItems(prev => [...prev, ...newListItems]);
         }
+        
         setTotalChunks(response.totalChunks);
         setCurrentChunk(response.currentChunk);
       }
@@ -41,18 +114,11 @@ export function App() {
     }
   };
 
-  // Separate effect for filtering to avoid unnecessary work during monitoring updates
-  useEffect(() => {
-    if (!filter) {
-      setFilteredRequests(requests);
-      return;
-    }
-    const lowerFilter = filter.toLowerCase();
-    const filtered = requests.filter((request) => 
-      request.url.toLowerCase().includes(lowerFilter)
-    );
-    setFilteredRequests(filtered);
-  }, [filter, requests]);
+  // Handle preview selection with full request data
+  const handlePreviewSelection = useCallback((listItem: RequestListItem) => {
+    const fullRequest = requests.find(req => req.id === listItem.id);
+    setSelectedRequest(fullRequest);
+  }, [requests]);
 
   useEffect(() => {
     // Get current tab and monitoring state when popup opens
@@ -77,6 +143,8 @@ export function App() {
 
     return () => {
       setRequests([]);
+      setRequestListItems([]);
+      setFilteredListItems([]);
       setSelectedRequest(null);
       setCurrentChunk(0);
       setTotalChunks(1);
@@ -149,6 +217,8 @@ export function App() {
     });
     
     setRequests([]);
+    setRequestListItems([]);
+    setFilteredListItems([]);
     setSelectedRequest(null);
   };
 
@@ -160,27 +230,18 @@ export function App() {
     <div class="container">
       <div class="sticky-header">
         <div class="header">
-          <div class="controls">
+          <div class="view-mode-tabs">
             <button
-              class="button button-primary"
-              onClick={handleStartMonitoring}
-              disabled={isMonitoring}
+              class={`view-mode-tab ${viewMode === 'monitor' ? 'active' : ''}`}
+              onClick={() => setViewMode('monitor')}
             >
-              Start Monitoring
+              Monitor Requests
             </button>
             <button
-              class="button button-secondary"
-              onClick={handleStopMonitoring}
-              disabled={!isMonitoring}
+              class={`view-mode-tab ${viewMode === 'custom' ? 'active' : ''}`}
+              onClick={() => setViewMode('custom')}
             >
-              Stop Monitoring
-            </button>
-            <button
-              class="button button-secondary"
-              onClick={handleClearRequests}
-              disabled={!requests.length}
-            >
-              Clear Requests
+              Custom JSON
             </button>
           </div>
           <button 
@@ -192,57 +253,108 @@ export function App() {
           </button>
         </div>
 
-        <div class="filters">
-          <div class="filters-row">
-            <div class="schema-type">
-              <label>Schema Type:</label>
-              <select
-                value={schemaType}
-                onChange={(e) => setSchemaType(e.currentTarget.value as SchemaType)}
-              >
-                <option value="joi">Joi</option>
-                <option value="zod">Zod</option>
-              </select>
-            </div>
-            <div class="request-type">
-              <label>Monitor:</label>
-              <select
-                value={requestTypeFilter}
-                onChange={(e) => setRequestTypeFilter(e.currentTarget.value as RequestTypeFilter)}
+        {viewMode === 'monitor' && (
+          <>
+            <div class="controls">
+              <button
+                class="button button-primary"
+                onClick={handleStartMonitoring}
                 disabled={isMonitoring}
               >
-                <option value="fetch">Fetch/XHR</option>
-                <option value="all">All</option>
-              </select>
+                Start Monitoring
+              </button>
+              <button
+                class="button button-secondary"
+                onClick={handleStopMonitoring}
+                disabled={!isMonitoring}
+              >
+                Stop Monitoring
+              </button>
+              <button
+                class="button button-secondary"
+                onClick={handleClearRequests}
+                disabled={!requests.length}
+              >
+                Clear Requests
+              </button>
+            </div>
+
+            <div class="filters">
+              <div class="filters-row">
+                <div class="schema-type">
+                  <label>Schema Type:</label>
+                  <select
+                    value={schemaType}
+                    onChange={(e) => setSchemaType(e.currentTarget.value as SchemaType)}
+                  >
+                    <option value="joi">Joi</option>
+                    <option value="zod">Zod</option>
+                  </select>
+                </div>
+                <div class="request-type">
+                  <label>Monitor:</label>
+                  <select
+                    value={requestTypeFilter}
+                    onChange={(e) => setRequestTypeFilter(e.currentTarget.value as RequestTypeFilter)}
+                    disabled={isMonitoring}
+                  >
+                    <option value="fetch">Fetch/XHR</option>
+                    <option value="all">All</option>
+                  </select>
+                </div>
+              </div>
+              <div class="filter-input">
+                <input
+                  type="text"
+                  placeholder="Filter by URL..."
+                  value={filter}
+                  onInput={handleFilterChange}
+                  disabled={isMonitoring}
+                />
+              </div>
+            </div>
+          </>
+        )}
+
+        {viewMode === 'custom' && (
+          <div class="filters">
+            <div class="filters-row">
+              <div class="schema-type">
+                <label>Schema Type:</label>
+                <select
+                  value={schemaType}
+                  onChange={(e) => setSchemaType(e.currentTarget.value as SchemaType)}
+                >
+                  <option value="joi">Joi</option>
+                  <option value="zod">Zod</option>
+                </select>
+              </div>
             </div>
           </div>
-          <div class="filter-input">
-            <input
-              type="text"
-              placeholder="Filter by URL..."
-              value={filter}
-              onChange={(e) => setFilter(e.currentTarget.value)}
-              disabled={isMonitoring}
+        )}
+      </div>
+
+      {viewMode === 'monitor' ? (
+        <>
+          <div class="request-list-container">
+            <RequestList 
+              requests={filteredListItems} 
+              onPreview={handlePreviewSelection}
+              onLoadMore={handleLoadMore}
+              hasMore={currentChunk < totalChunks - 1}
             />
           </div>
-        </div>
-      </div>
 
-      <div class="request-list-container">
-        <RequestList 
-          requests={filteredRequests} 
-          onPreview={setSelectedRequest}
-          onLoadMore={handleLoadMore}
-          hasMore={currentChunk < totalChunks - 1}
-        />
-      </div>
-
-      {selectedRequest && (
-        <Preview
-          request={selectedRequest}
-          schemaType={schemaType}
-          onClose={() => setSelectedRequest(null)}
-        />
+          {selectedRequest && (
+            <Preview
+              request={selectedRequest}
+              schemaType={schemaType}
+              onClose={() => setSelectedRequest(null)}
+            />
+          )}
+        </>
+      ) : (
+        <CustomJsonInput schemaType={schemaType} />
       )}
     </div>
   );

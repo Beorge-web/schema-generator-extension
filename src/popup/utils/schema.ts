@@ -4,6 +4,99 @@ interface SchemaOptions {
   showExamples?: boolean;
 }
 
+interface SchemaDefinition {
+  type: string | string[];
+  properties?: Record<string, SchemaDefinition>;
+  items?: SchemaDefinition;
+  required?: string[];
+  example?: any;
+}
+
+function analyzeJsonStructure(data: any): SchemaDefinition {
+  if (data === null) {
+    return { type: 'null' };
+  }
+
+  if (Array.isArray(data)) {
+    const itemSchemas = data.slice(0, 10).map(item => analyzeJsonStructure(item));
+    const mergedItemSchema = itemSchemas.length > 0 
+      ? mergeSchemaDefinitions(itemSchemas)
+      : { type: 'any' };
+    
+    return {
+      type: 'array',
+      items: mergedItemSchema,
+      example: data.length > 10 ? `Array(${data.length})` : undefined
+    };
+  }
+
+  if (typeof data === 'object') {
+    const properties: Record<string, SchemaDefinition> = {};
+    const required: string[] = [];
+
+    for (const [key, value] of Object.entries(data)) {
+      properties[key] = analyzeJsonStructure(value);
+      if (value !== undefined) {
+        required.push(key);
+      }
+    }
+
+    return {
+      type: 'object',
+      properties,
+      required
+    };
+  }
+
+  const type = typeof data === 'number' && Number.isInteger(data) ? 'integer' : typeof data;
+  return {
+    type,
+    example: ['string', 'number', 'boolean'].includes(type) ? data : undefined
+  };
+}
+
+function mergeSchemaDefinitions(schemas: SchemaDefinition[]): SchemaDefinition {
+  if (schemas.length === 0) return { type: 'any' };
+  if (schemas.length === 1) return schemas[0];
+
+  const types = new Set(schemas.flatMap(s => Array.isArray(s.type) ? s.type : [s.type]));
+  
+  if (types.size === 1) {
+    const type = types.values().next().value;
+    
+    if (type === 'object') {
+      const allProperties = new Set(schemas.flatMap(s => Object.keys(s.properties || {})));
+      const properties: Record<string, SchemaDefinition> = {};
+      const required: string[] = [];
+
+      for (const prop of allProperties) {
+        const propSchemas = schemas
+          .filter(s => s.properties?.[prop])
+          .map(s => s.properties![prop]);
+        
+        if (propSchemas.length > 0) {
+          properties[prop] = mergeSchemaDefinitions(propSchemas);
+          if (schemas.every(s => s.required?.includes(prop))) {
+            required.push(prop);
+          }
+        }
+      }
+
+      return { type, properties, required };
+    }
+
+    if (type === 'array') {
+      const itemSchemas = schemas.filter(s => s.items).map(s => s.items!);
+      return {
+        type,
+        items: itemSchemas.length > 0 ? mergeSchemaDefinitions(itemSchemas) : { type: 'any' }
+      };
+    }
+  }
+
+  return { type: Array.from(types) };
+}
+
 export function generateSchemaFromJson(
   data: any, 
   type: SchemaType = 'zod', 
@@ -20,19 +113,15 @@ export function generateSchemaFromJson(
     return `// Error: ${data.error}\n// ${data.details}\n${type === 'zod' ? 'z.unknown()' : 'Joi.any()'}`;
   }
 
-  if (!data.schema) {
-    return type === 'zod'
-      ? '// Error: No schema data available\nz.unknown()'
-      : '// Error: No schema data available\nJoi.any()';
-  }
+  const schema = analyzeJsonStructure(data.schema || data.sample || data);
   
   if (type === 'zod') {
-    return generateZodSchema(data.schema, indent, options);
+    return generateZodSchema(schema, indent, options);
   }
-  return generateJoiSchema(data.schema, indent, options);
+  return generateJoiSchema(schema, indent, options);
 }
 
-function generateZodSchema(schema: any, indent = '', options: SchemaOptions = {}): string {
+function generateZodSchema(schema: SchemaDefinition, indent = '', options: SchemaOptions = {}): string {
   if (!schema || !schema.type) {
     return 'z.unknown()';
   }
@@ -81,12 +170,14 @@ function generateZodSchema(schema: any, indent = '', options: SchemaOptions = {}
         .join(',\n');
       return `z.object({\n${properties}\n${indent}})`;
     }
+    case 'any':
+      return 'z.any()';
     default:
       return 'z.unknown()';
   }
 }
 
-function generateJoiSchema(schema: any, indent = '', options: SchemaOptions = {}): string {
+function generateJoiSchema(schema: SchemaDefinition, indent = '', options: SchemaOptions = {}): string {
   if (!schema || !schema.type) {
     return 'Joi.any()';
   }
@@ -135,6 +226,8 @@ function generateJoiSchema(schema: any, indent = '', options: SchemaOptions = {}
         .join(',\n');
       return `Joi.object({\n${properties}\n${indent}})`;
     }
+    case 'any':
+      return 'Joi.any()';
     default:
       return 'Joi.any()';
   }

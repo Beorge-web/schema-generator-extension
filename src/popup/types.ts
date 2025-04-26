@@ -1,4 +1,5 @@
 export type SchemaType = 'joi' | 'zod';
+export type ViewMode = 'monitor' | 'custom';
 
 export interface Request {
   id: string;
