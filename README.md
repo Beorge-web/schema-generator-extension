@@ -92,6 +92,10 @@ const userSchema = Joi.object({
 });
 ```
 
+## Privacy Policy
+
+This extension does not collect or transmit any personal data. All data processing happens locally in your browser. For more details, please see our [Privacy Policy](PRIVACY.md).
+
 ## Contributing
 
 Contributions are welcome!
