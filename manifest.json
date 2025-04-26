@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "API Schema Generator",
+  "description": "Monitor network requests and generate schemas from responses",
+  "version": "1.0",
+  "permissions": ["debugger", "tabs", "activeTab", "storage", "scripting"],
+  "action": {
+    "default_popup": "src/popup/index.html",
+    "default_icon": {
+      "16": "icons/icon16.svg",
+      "48": "icons/icon48.svg",
+      "128": "icons/icon128.svg"
+    }
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  },
+  "icons": {
+    "16": "icons/icon16.svg",
+    "48": "icons/icon48.svg",
+    "128": "icons/icon128.svg"
+  }
+} 
