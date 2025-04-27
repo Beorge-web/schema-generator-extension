@@ -104,7 +104,7 @@ function validateJsonResponse(data: any): { isValid: boolean; errors: string[] }
   try {
     // Basic schema for JSON response
     const schema = {
-      type: "object",
+      __type: "object",
       additionalProperties: true
     };
 
@@ -126,45 +126,49 @@ function generateJsonSchema(data: any): any {
   const schema: any = {};
   
   if (Array.isArray(data)) {
-    schema.type = "array";
+    schema.__type = "array";
     if (data.length > 0) {
       // Take up to 10 items to infer array item schema
       const sampleItems = data.slice(0, 10);
       const itemSchemas = sampleItems.map(item => generateJsonSchema(item));
-      schema.items = mergeSchemas(itemSchemas);
+      schema.__items = mergeSchemas(itemSchemas);
       
       // Only add array length example if it's significant
       if (data.length > 10) {
-        schema.example = `Array(${data.length})`;
+        schema.__example = `Array(${data.length})`;
       }
     }
   } else if (data === null) {
-    schema.type = "null";
+    schema.__type = "null";
   } else if (typeof data === "object") {
-    schema.type = "object";
-    schema.properties = {};
-    schema.required = [];
+    schema.__type = "object";
+    schema.__properties = {};
+    schema.__required = [];
     
     for (const [key, value] of Object.entries(data)) {
-      schema.properties[key] = generateJsonSchema(value);
+      // Skip generating schema for internal metadata fields
+      if (key.startsWith('__')) {
+        continue;
+      }
+      schema.__properties[key] = generateJsonSchema(value);
       if (value !== undefined) {
-        schema.required.push(key);
+        schema.__required.push(key);
       }
     }
   } else {
-    schema.type = typeof data;
+    schema.__type = typeof data;
     if (typeof data === "number") {
-      schema.type = Number.isInteger(data) ? "integer" : "number";
+      schema.__type = Number.isInteger(data) ? "integer" : "number";
     }
     
     // Add example value for primitive types, but handle special cases
     if (typeof data === 'string') {
       // Only add string examples if they're not too long
       if (data.length <= 50) {
-        schema.example = data;
+        schema.__example = data;
       }
     } else if (typeof data === 'number' || typeof data === 'boolean') {
-      schema.example = data;
+      schema.__example = data;
     }
   }
   
@@ -177,44 +181,48 @@ function mergeSchemas(schemas: any[]): any {
   if (schemas.length === 1) return schemas[0];
   
   const merged = { ...schemas[0] };
-  const types = new Set(schemas.map(s => s.type).flat().filter(Boolean));
+  const types = new Set(schemas.map(s => s.__type).flat().filter(Boolean));
   
   // If we have multiple types, make it a union
-  merged.type = types.size > 1 ? Array.from(types) : merged.type;
+  merged.__type = types.size > 1 ? Array.from(types) : merged.__type;
   
   // Merge properties for objects
-  if (merged.type === 'object') {
-    const allProperties = new Set(schemas.flatMap(s => Object.keys(s.properties || {})));
-    merged.properties = {};
-    merged.required = [];
+  if (merged.__type === 'object') {
+    const allProperties = new Set(schemas.flatMap(s => Object.keys(s.__properties || {})));
+    merged.__properties = {};
+    merged.__required = [];
     
     for (const prop of allProperties) {
+      // Skip merging internal metadata fields
+      if (prop.startsWith('__')) {
+        continue;
+      }
       const propSchemas = schemas
-        .filter(s => s.properties?.[prop])
-        .map(s => s.properties[prop]);
+        .filter(s => s.__properties?.[prop])
+        .map(s => s.__properties[prop]);
       
       if (propSchemas.length > 0) {
-        merged.properties[prop] = mergeSchemas(propSchemas);
+        merged.__properties[prop] = mergeSchemas(propSchemas);
         // Only mark as required if present in all schemas
-        if (schemas.every(s => s.required?.includes(prop))) {
-          merged.required.push(prop);
+        if (schemas.every(s => s.__required?.includes(prop))) {
+          merged.__required.push(prop);
         }
       }
     }
   }
   
   // Merge array items
-  if (merged.type === 'array' && schemas.some(s => s.items)) {
-    const itemSchemas = schemas.filter(s => s.items).map(s => s.items);
-    merged.items = mergeSchemas(itemSchemas);
+  if (merged.__type === 'array' && schemas.some(s => s.__items)) {
+    const itemSchemas = schemas.filter(s => s.__items).map(s => s.__items);
+    merged.__items = mergeSchemas(itemSchemas);
   }
   
   // Merge examples if they're different
-  const examples = schemas.map(s => s.example).filter(Boolean);
+  const examples = schemas.map(s => s.__example).filter(Boolean);
   if (examples.length > 0 && new Set(examples).size > 1) {
-    merged.examples = Array.from(new Set(examples)).slice(0, 3);
+    merged.__examples = Array.from(new Set(examples)).slice(0, 3);
   } else if (examples.length > 0) {
-    merged.example = examples[0];
+    merged.__example = examples[0];
   }
   
   return merged;
@@ -256,6 +264,28 @@ async function getResponseBodyWithRetry(
     }
   }
   return null;
+}
+
+// Function to clean schema data for response view
+function cleanSchemaForResponse(schema: any): any {
+  if (!schema || typeof schema !== 'object') {
+    return schema;
+  }
+
+  // If it's an array
+  if (Array.isArray(schema)) {
+    return schema.map(item => cleanSchemaForResponse(item));
+  }
+
+  // If it's an object
+  const result: any = {};
+  for (const [key, value] of Object.entries(schema)) {
+    // Skip metadata fields
+    if (!key.startsWith('__')) {
+      result[key] = cleanSchemaForResponse(value);
+    }
+  }
+  return result;
 }
 
 // Handle debugger events
@@ -315,14 +345,16 @@ function handleDebuggerEvent(
                   const cleanedJson = preprocessJsonString(response.body);
                   const parsedBody = JSON.parse(cleanedJson);
                   
-                  // Generate schema instead of storing full response
+                  // Generate schema
                   const schema = generateJsonSchema(parsedBody);
                   
-                  // Store schema and response info
+                  // Store schema and clean response info
                   requestData.responseBody = {
+                    // Store both the raw parsed data and the schema
+                    data: parsedBody,
                     schema: schema,
-                    // Store a small sample of the data for primitive values
-                    sample: typeof parsedBody === 'object' ? undefined : parsedBody
+                    // Clean version for response view
+                    sample: cleanSchemaForResponse(parsedBody)
                   };
                 } catch (e) {
                   console.error("Failed to process response:", e);
