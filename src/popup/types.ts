@@ -8,8 +8,7 @@ export interface Request {
   type?: string;
   timestamp: number;
   responseBody?: {
-    schema?: any;
-    sample?: any;
+    data?: any;
     error?: string;
     details?: string;
   };

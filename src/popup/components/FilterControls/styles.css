@@ -4,6 +4,7 @@
   gap: var(--spacing-sm);
   padding: var(--spacing-sm) var(--spacing-md);
   border-bottom: 1px solid var(--border-color);
+  height: 86px;
 }
 
 .filters-row {

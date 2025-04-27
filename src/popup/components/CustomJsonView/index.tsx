@@ -16,15 +16,12 @@ export function CustomJsonView({
   const [jsonInput, setJsonInput] = useState("");
   const [generatedSchema, setGeneratedSchema] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [showExamples, setShowExamples] = useState(false);
   const [copyStatus, setCopyStatus] = useState("Copy");
 
   const handleGenerateSchema = () => {
     try {
       const parsedJson = JSON.parse(jsonInput);
-      const schema = generateSchemaFromJson(parsedJson, schemaType, "", {
-        showExamples,
-      });
+      const schema = generateSchemaFromJson(parsedJson, schemaType, "");
       setGeneratedSchema(schema);
       setError(null);
     } catch (e) {
@@ -58,14 +55,6 @@ export function CustomJsonView({
               <option value="zod">Zod</option>
             </select>
           </div>
-          <label class="example-toggle">
-            <input
-              type="checkbox"
-              checked={showExamples}
-              onChange={(e) => setShowExamples(e.currentTarget.checked)}
-            />
-            Show Examples
-          </label>
         </div>
         <textarea
           value={jsonInput}

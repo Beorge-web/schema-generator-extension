@@ -132,11 +132,6 @@ function generateJsonSchema(data: any): any {
       const sampleItems = data.slice(0, 10);
       const itemSchemas = sampleItems.map(item => generateJsonSchema(item));
       schema.__items = mergeSchemas(itemSchemas);
-      
-      // Only add array length example if it's significant
-      if (data.length > 10) {
-        schema.__example = `Array(${data.length})`;
-      }
     }
   } else if (data === null) {
     schema.__type = "null";
@@ -159,16 +154,6 @@ function generateJsonSchema(data: any): any {
     schema.__type = typeof data;
     if (typeof data === "number") {
       schema.__type = Number.isInteger(data) ? "integer" : "number";
-    }
-    
-    // Add example value for primitive types, but handle special cases
-    if (typeof data === 'string') {
-      // Only add string examples if they're not too long
-      if (data.length <= 50) {
-        schema.__example = data;
-      }
-    } else if (typeof data === 'number' || typeof data === 'boolean') {
-      schema.__example = data;
     }
   }
   
@@ -217,14 +202,6 @@ function mergeSchemas(schemas: any[]): any {
     merged.__items = mergeSchemas(itemSchemas);
   }
   
-  // Merge examples if they're different
-  const examples = schemas.map(s => s.__example).filter(Boolean);
-  if (examples.length > 0 && new Set(examples).size > 1) {
-    merged.__examples = Array.from(new Set(examples)).slice(0, 3);
-  } else if (examples.length > 0) {
-    merged.__example = examples[0];
-  }
-  
   return merged;
 }
 
@@ -266,27 +243,6 @@ async function getResponseBodyWithRetry(
   return null;
 }
 
-// Function to clean schema data for response view
-function cleanSchemaForResponse(schema: any): any {
-  if (!schema || typeof schema !== 'object') {
-    return schema;
-  }
-
-  // If it's an array
-  if (Array.isArray(schema)) {
-    return schema.map(item => cleanSchemaForResponse(item));
-  }
-
-  // If it's an object
-  const result: any = {};
-  for (const [key, value] of Object.entries(schema)) {
-    // Skip metadata fields
-    if (!key.startsWith('__')) {
-      result[key] = cleanSchemaForResponse(value);
-    }
-  }
-  return result;
-}
 
 // Handle debugger events
 function handleDebuggerEvent(
@@ -350,11 +306,7 @@ function handleDebuggerEvent(
                   
                   // Store schema and clean response info
                   requestData.responseBody = {
-                    // Store both the raw parsed data and the schema
-                    data: parsedBody,
-                    schema: schema,
-                    // Clean version for response view
-                    sample: cleanSchemaForResponse(parsedBody)
+                    data: parsedBody
                   };
                 } catch (e) {
                   console.error("Failed to process response:", e);

@@ -15,7 +15,6 @@ type Tab = 'request' | 'response' | 'schema';
 export function Preview({ request, schemaType, onClose }: PreviewProps) {
   const [activeTab, setActiveTab] = useState<Tab>("schema");
   const [copyStatus, setCopyStatus] = useState("Copy");
-  const [showExamples, setShowExamples] = useState(false);
 
   // Function to format URL by removing origin
   const formatUrl = (url: string) => {
@@ -38,12 +37,12 @@ export function Preview({ request, schemaType, onClose }: PreviewProps) {
 
     if (activeTab === "schema") {
       try {
-        return generateSchemaFromJson(request.responseBody, schemaType, '', { showExamples });
+        return generateSchemaFromJson(request.responseBody.data, schemaType, '');
       } catch (e) {
         return `// Error: Failed to generate schema\n// ${e instanceof Error ? e.message : String(e)}`;
       }
     }
-    return JSON.stringify(request.responseBody, null, 2);
+    return JSON.stringify(request.responseBody.data, null, 2);
   };
 
   const handleCopy = async () => {
@@ -85,16 +84,6 @@ export function Preview({ request, schemaType, onClose }: PreviewProps) {
         >
           Response
         </button>
-        {activeTab === "schema" && (
-          <label class="example-toggle">
-            <input
-              type="checkbox"
-              checked={showExamples}
-              onChange={(e) => setShowExamples(e.currentTarget.checked)}
-            />
-            Show Examples
-          </label>
-        )}
       </div>
 
       <div class="preview-content">

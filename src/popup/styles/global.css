@@ -17,11 +17,15 @@
   --radius-lg: 8px;
 }
 
-body {
+html, body {
   width: 400px;
   height: 600px;
   margin: 0;
-  overflow: hidden;
+  padding: 0;
+  overflow: hidden !important;
+}
+
+body {
   color: var(--text-color);
   background: var(--background-color);
 }

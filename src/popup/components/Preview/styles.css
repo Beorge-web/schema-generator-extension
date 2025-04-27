@@ -5,10 +5,11 @@
   bottom: 0;
   background: var(--surface-color);
   border-top: 1px solid var(--border-color);
-  max-height: 60%;
+  height: calc(100% - 126px);
   display: flex;
   flex-direction: column;
   z-index: 20;
+  overflow-y: auto;
 }
 
 .preview-header {

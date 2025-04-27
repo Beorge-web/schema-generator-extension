@@ -1,12 +1,12 @@
 /** @jsxImportSource preact */
 import { useState, useEffect, useCallback } from "preact/hooks";
 import { JSX } from "preact";
-import { SchemaType, ViewMode } from "../../types/common";
-import { RequestListItem, RequestTypeFilter } from "../../types/request";
-import { useDebounceCallback } from "../../hooks/useDebounceCallback";
-import { Header } from "../Header";
-import { RequestMonitorView } from "../RequestMonitorView";
-import { CustomJsonView } from "./../CustomJsonView/index";
+import { SchemaType, ViewMode } from "../types/common";
+import { RequestListItem, RequestTypeFilter } from "../types/request";
+import { useDebounceCallback } from "../hooks/useDebounceCallback";
+import { Header } from "./Header";
+import { RequestMonitorView } from "./RequestMonitorView";
+import { CustomJsonView } from "./CustomJsonView/index";
 import "./styles.css";
 
 export function App() {
@@ -202,14 +202,12 @@ export function App() {
 
   return (
     <div class="container">
-      <div class="sticky-header">
         <Header
           viewMode={viewMode}
           onViewModeChange={setViewMode}
           onClose={handleClosePopup}
         />
-      </div>
-
+      <div class="content">
       {viewMode === "monitor" && (
         <RequestMonitorView
           isMonitoring={isMonitoring}
@@ -238,7 +236,8 @@ export function App() {
           onSchemaTypeChange={setSchemaType}
           schemaType={schemaType}
         />
-      )}
+        )}
+      </div>
     </div>
   );
 }

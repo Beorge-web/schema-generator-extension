@@ -4,6 +4,8 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  height: calc(100% - 126px);
+  overflow-y: auto;
 }
 
 .request-list {
