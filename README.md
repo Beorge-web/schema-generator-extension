@@ -14,9 +14,11 @@ A browser extension tool that automatically generates [Zod](https://github.com/c
 
 ## Installation
 
+### Option 1: Installing from Source
+
 1. Clone the repository:
 ```bash
-git clone [your-repository-url]
+git clone [https://github.com/Beorge-web/schema-generator-extension.git]
 cd schema-generator
 ```
 
@@ -35,6 +37,18 @@ pnpm build
    - Enable "Developer mode"
    - Click "Load unpacked"
    - Select the `dist` directory from this project
+
+### Option 2: Installing from Release Package
+
+1. Download the latest release ZIP file from the releases section
+2. Extract the ZIP file to a location on your computer
+3. Open Chrome/Edge and navigate to `chrome://extensions`
+4. Enable "Developer mode" using the toggle in the top-right corner
+5. Click "Load unpacked" button
+6. Browse to the extracted folder and select it
+7. The extension should now appear in your browser's toolbar
+
+Note: If you don't see the extension icon immediately, you might need to click the puzzle piece icon in your browser's toolbar and pin the Schema Generator extension.
 
 ## Development
 
@@ -106,4 +120,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Support
 
-For issues and feature requests, please [open an issue](your-repository-url/issues) on GitHub. 
+For issues and feature requests, please [open an issue](your-repository-url/issues) on GitHub.
