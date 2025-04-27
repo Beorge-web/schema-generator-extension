@@ -1,0 +1,33 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+  overflow-y: auto;
+}
+
+.sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--background-color);
+  padding: 0;
+  border-bottom: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+/* Reset default styles */
+button {
+  font-family: inherit;
+}
+
+select {
+  font-family: inherit;
+}
+
+input {
+  font-family: inherit;
+} 

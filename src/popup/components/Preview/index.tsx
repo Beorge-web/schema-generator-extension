@@ -1,19 +1,21 @@
 /** @jsxImportSource preact */
-import { useState } from "preact/hooks";
-import { SchemaType } from "../types";
-import { generateSchemaFromJson } from "../utils/schema";
+import { useState, useCallback } from "preact/hooks";
+import { SchemaType } from "../../types/common";
+import "./styles.css";
+import { generateSchemaFromJson } from "../../utils/schema";
 
-interface PreviewProps {
+type PreviewProps = {
   request: any;
   schemaType: SchemaType;
   onClose: () => void;
-}
+};
 
-type Tab = "schema" | "response";
+type Tab = 'request' | 'response' | 'schema';
 
 export function Preview({ request, schemaType, onClose }: PreviewProps) {
   const [activeTab, setActiveTab] = useState<Tab>("schema");
   const [copyStatus, setCopyStatus] = useState("Copy");
+  const [showExamples, setShowExamples] = useState(false);
 
   // Function to format URL by removing origin
   const formatUrl = (url: string) => {
@@ -36,7 +38,7 @@ export function Preview({ request, schemaType, onClose }: PreviewProps) {
 
     if (activeTab === "schema") {
       try {
-        return generateSchemaFromJson(request.responseBody, schemaType);
+        return generateSchemaFromJson(request.responseBody, schemaType, '', { showExamples });
       } catch (e) {
         return `// Error: Failed to generate schema\n// ${e instanceof Error ? e.message : String(e)}`;
       }
@@ -83,6 +85,16 @@ export function Preview({ request, schemaType, onClose }: PreviewProps) {
         >
           Response
         </button>
+        {activeTab === "schema" && (
+          <label class="example-toggle">
+            <input
+              type="checkbox"
+              checked={showExamples}
+              onChange={(e) => setShowExamples(e.currentTarget.checked)}
+            />
+            Show Examples
+          </label>
+        )}
       </div>
 
       <div class="preview-content">
