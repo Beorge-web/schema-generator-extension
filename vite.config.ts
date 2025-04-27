@@ -14,12 +14,12 @@ const copyAssets = () => ({
     // Copy icons
     const iconSizes = ['16', '48', '128'];
     iconSizes.forEach(size => {
-      const iconPath = path.resolve(__dirname, `src/assets/icons/icon${size}.svg`);
+      const iconPath = path.resolve(__dirname, `src/assets/icons/icon${size}.png`);
       if (fs.existsSync(iconPath)) {
         const iconContent = fs.readFileSync(iconPath);
         this.emitFile({
           type: 'asset',
-          fileName: `icons/icon${size}.svg`,
+          fileName: `icons/icon${size}.png`,
           source: iconContent
         });
       }
