@@ -18,7 +18,7 @@ A browser extension tool that automatically generates [Zod](https://github.com/c
 
 1. Clone the repository:
 ```bash
-git clone [https://github.com/Beorge-web/schema-generator-extension.git]
+git clone https://github.com/Beorge-web/schema-generator-extension.git
 cd schema-generator
 ```
 
