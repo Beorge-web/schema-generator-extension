@@ -3,7 +3,7 @@
   "name": "API Schema Generator",
   "description": "Monitor network requests and generate schemas from responses",
   "version": "1.0",
-  "permissions": ["debugger", "tabs", "activeTab", "storage", "scripting"],
+  "permissions": ["debugger", "activeTab"],
   "action": {
     "default_popup": "src/popup/index.html",
     "default_icon": {
