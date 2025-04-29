@@ -15,8 +15,9 @@ This extension does not collect, store, or transmit any personal information. Al
   * The browser is closed
 
 ## 3. Data Storage
-- All generated schemas and settings are stored locally in your browser using Chrome's storage API
-- No data is synchronized or stored on external servers
+- All generated schemas and monitoring data are stored temporarily in memory
+- Data is automatically cleared when tabs are closed or the browser is restarted
+- No persistent storage is used, ensuring maximum privacy
 
 ## 4. Third-Party Services
 This extension does not integrate with or send data to any third-party services.
@@ -30,10 +31,7 @@ If you have any questions about this privacy policy, you can create an issue in 
 ## 7. Permissions Usage
 The extension requires certain permissions which are used as follows:
 - `debugger`: Used only for monitoring network requests
-- `tabs`: Used to identify the current tab being monitored
-- `activeTab`: Used to access the current tab when activated
-- `storage`: Used to store settings locally
-- `scripting`: Used to process network requests
+- `activeTab`: Used to access and monitor the current tab when activated
 
 All operations are performed locally within your browser, and no data is collected, stored, or transmitted externally.
 
@@ -56,8 +54,9 @@ All operations are performed locally within your browser, and no data is collect
   * Закрытии браузера
 
 ## 3. Хранение данных
-- Все сгенерированные схемы и настройки хранятся локально в вашем браузере с использованием API хранилища Chrome
-- Данные не синхронизируются и не хранятся на внешних серверах
+- Все сгенерированные схемы и данные мониторинга хранятся временно в памяти
+- Данные автоматически очищаются при закрытии вкладок или перезапуске браузера
+- Постоянное хранение не используется, обеспечивая максимальную конфиденциальность
 
 ## 4. Сторонние сервисы
 Это расширение не интегрируется и не отправляет данные сторонним сервисам.
@@ -71,9 +70,6 @@ All operations are performed locally within your browser, and no data is collect
 ## 7. Использование разрешений
 Расширение требует определенных разрешений, которые используются следующим образом:
 - `debugger`: Используется только для мониторинга сетевых запросов
-- `tabs`: Используется для идентификации текущей отслеживаемой вкладки
-- `activeTab`: Используется для доступа к текущей вкладке при активации
-- `storage`: Используется для локального хранения настроек
-- `scripting`: Используется для обработки сетевых запросов
+- `activeTab`: Используется для доступа и мониторинга текущей вкладки при активации
 
 Все операции выполняются локально в вашем браузере, никакие данные не собираются, не хранятся и не передаются внешним службам. 
