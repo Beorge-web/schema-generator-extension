@@ -6,12 +6,23 @@ interface SchemaDefinition {
   __items?: SchemaDefinition;
   __required?: string[];
   __isEmptyArray?: boolean;
+  __isDate?: boolean;
 }
 
 function analyzeJsonStructure(data: any): SchemaDefinition {
   if (data === null) {
     return { __type: "null" };
   }
+
+  if (data === undefined) {
+    return { __type: "undefined" };
+  }
+
+  // Handle Date objects
+  if (data instanceof Date) {
+    return { __type: "date", __isDate: true };
+  }
+
   if (Array.isArray(data)) {
     if (data.length === 0) {
       return {
@@ -19,9 +30,17 @@ function analyzeJsonStructure(data: any): SchemaDefinition {
         __isEmptyArray: true,
       };
     }
-    const itemSchemas = data
-      .slice(0, 10)
-      .map((item) => analyzeJsonStructure(item));
+
+    // Sample more intelligently for large arrays
+    const sampleSize = Math.min(data.length, 50);
+    const step = Math.max(1, Math.floor(data.length / sampleSize));
+    const itemSchemas: SchemaDefinition[] = [];
+
+    for (let i = 0; i < data.length; i += step) {
+      if (itemSchemas.length >= sampleSize) break;
+      itemSchemas.push(analyzeJsonStructure(data[i]));
+    }
+
     const mergedItemSchema =
       itemSchemas.length > 0 ? mergeSchemaDefinitions(itemSchemas) : null;
 
@@ -39,9 +58,10 @@ function analyzeJsonStructure(data: any): SchemaDefinition {
       if (!key.startsWith("__")) {
         const schema = analyzeJsonStructure(value);
         __properties[key] = schema;
-        // Only mark as required if the value is not undefined and not an empty array
+        // Only mark as required if the value is not undefined and not null and not an empty array
         if (
           value !== undefined &&
+          value !== null &&
           !(Array.isArray(value) && value.length === 0)
         ) {
           __required.push(key);
@@ -54,6 +74,11 @@ function analyzeJsonStructure(data: any): SchemaDefinition {
       __properties,
       __required,
     };
+  }
+
+  // Handle BigInt
+  if (typeof data === "bigint") {
+    return { __type: "bigint" };
   }
 
   const type =
@@ -117,9 +142,28 @@ function mergeSchemaDefinitions(schemas: SchemaDefinition[]): SchemaDefinition {
         ...(mergedItems && { __items: mergedItems }),
       };
     }
+
+    if (type === "date") {
+      return { __type: "date", __isDate: true };
+    }
   }
 
   return { __type: Array.from(types) };
+}
+
+// Helper function to create safe property keys for schema generation
+function createSafePropertyKey(key: string): string {
+  // Check if the key needs to be quoted
+  const needsQuotes =
+    !/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key) ||
+    ["if", "for", "while", "class", "const", "let", "var", "function"].includes(
+      key
+    );
+
+  if (needsQuotes) {
+    return `"${key.replace(/"/g, '\\"')}"`;
+  }
+  return key;
 }
 
 export function generateSchemaFromJson(
@@ -155,9 +199,22 @@ function generateZodSchema(schema: SchemaDefinition, indent = ""): string {
   const types = Array.isArray(schema.__type) ? schema.__type : [schema.__type];
 
   if (types.length > 1) {
-    return types
-      .map((type) => generateZodSchema({ ...schema, __type: type }, indent))
-      .join(" || ");
+    // Check if this is a nullable pattern (type + null)
+    if (types.length === 2 && types.includes("null")) {
+      const nonNullType = types.find((t) => t !== "null");
+      if (nonNullType) {
+        const baseSchema = generateZodSchema(
+          { ...schema, __type: nonNullType },
+          indent
+        );
+        return `${baseSchema}.nullable()`;
+      }
+    }
+
+    const unionSchemas = types.map((type) =>
+      generateZodSchema({ ...schema, __type: type }, indent)
+    );
+    return `z.union([${unionSchemas.join(", ")}])`;
   }
 
   const type = types[0];
@@ -173,6 +230,8 @@ function generateZodSchema(schema: SchemaDefinition, indent = ""): string {
     }
     case "null":
       return "z.null()";
+    case "undefined":
+      return "z.undefined()";
     case "string":
       return "z.string()";
     case "number":
@@ -181,6 +240,10 @@ function generateZodSchema(schema: SchemaDefinition, indent = ""): string {
       return "z.number().int()";
     case "boolean":
       return "z.boolean()";
+    case "bigint":
+      return "z.bigint()";
+    case "date":
+      return "z.date()";
     case "object": {
       if (
         !schema.__properties ||
@@ -194,7 +257,8 @@ function generateZodSchema(schema: SchemaDefinition, indent = ""): string {
         .map(([key, value]) => {
           const propSchema = generateZodSchema(value, indent + "  ");
           const isRequired = schema.__required?.includes(key);
-          return `${indent}  ${key}: ${propSchema}${
+          const safeKey = createSafePropertyKey(key);
+          return `${indent}  ${safeKey}: ${propSchema}${
             isRequired ? "" : ".optional()"
           }`;
         })
@@ -218,16 +282,28 @@ function generateJoiSchema(schema: SchemaDefinition, indent = ""): string {
   const types = Array.isArray(schema.__type) ? schema.__type : [schema.__type];
 
   if (types.length > 1) {
-    return types
-      .map((type) => generateJoiSchema({ ...schema, __type: type }, indent))
-      .join(".or(");
+    // Check if this is a nullable pattern (type + null)
+    if (types.length === 2 && types.includes("null")) {
+      const nonNullType = types.find((t) => t !== "null");
+      if (nonNullType) {
+        const baseSchema = generateJoiSchema(
+          { ...schema, __type: nonNullType },
+          indent
+        );
+        return `${baseSchema}.allow(null)`;
+      }
+    }
+
+    const alternativeSchemas = types.map((type) =>
+      generateJoiSchema({ ...schema, __type: type }, indent)
+    );
+    return `Joi.alternatives().try(${alternativeSchemas.join(", ")})`;
   }
 
   const type = types[0];
 
   if (type === "array" || schema.__isEmptyArray) {
     if (schema.__isEmptyArray || !schema.__items) {
-      // todo add allow empty?
       return "Joi.array()";
     }
     return `Joi.array().items(${generateJoiSchema(
@@ -239,6 +315,8 @@ function generateJoiSchema(schema: SchemaDefinition, indent = ""): string {
   switch (type) {
     case "null":
       return "Joi.valid(null)";
+    case "undefined":
+      return "Joi.valid(undefined)";
     case "string":
       return "Joi.string()";
     case "number":
@@ -247,6 +325,10 @@ function generateJoiSchema(schema: SchemaDefinition, indent = ""): string {
       return "Joi.number().integer()";
     case "boolean":
       return "Joi.boolean()";
+    case "bigint":
+      return "Joi.number().unsafe()"; // Joi doesn't have native BigInt support
+    case "date":
+      return "Joi.date()";
     case "object": {
       if (
         !schema.__properties ||
@@ -260,7 +342,8 @@ function generateJoiSchema(schema: SchemaDefinition, indent = ""): string {
         .map(([key, value]) => {
           const propSchema = generateJoiSchema(value, indent + "  ");
           const isRequired = schema.__required?.includes(key);
-          return `${indent}  ${key}: ${propSchema}${
+          const safeKey = createSafePropertyKey(key);
+          return `${indent}  ${safeKey}: ${propSchema}${
             isRequired ? ".required()" : ""
           }`;
         })

@@ -4,8 +4,8 @@
   gap: var(--spacing-md);
   padding: var(--spacing-md);
   height: 100%;
-  overflow-y: scroll;
-  overflow-x: hidden;
+  overflow: hidden;
+  flex: 1;
 }
 
 .input-section,
@@ -13,6 +13,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
+  flex-shrink: 0;
 }
 
 
@@ -31,16 +32,19 @@
 }
 
 .json-input {
-  min-height: 200px;
+  min-height: 180px;
+  max-height: 200px;
   padding: var(--spacing-sm);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 12px;
   line-height: 1.5;
-  resize: vertical;
+  resize: none;
   background: var(--surface-color);
   color: var(--text-color);
+  overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .json-input:focus {
@@ -65,7 +69,9 @@
   background: var(--surface-color);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
-  max-height: 300px;
-  overflow: auto;
+  max-height: 250px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 

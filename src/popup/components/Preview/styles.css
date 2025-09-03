@@ -3,13 +3,13 @@
   left: 0;
   right: 0;
   bottom: 0;
+  top: 40px;
   background: var(--surface-color);
   border-top: 1px solid var(--border-color);
-  height: calc(100% - 126px);
   display: flex;
   flex-direction: column;
   z-index: 20;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .preview-header {

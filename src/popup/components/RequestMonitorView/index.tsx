@@ -56,7 +56,7 @@ export function RequestMonitorView({
   };
 
   return (
-    <>
+    <div class="monitor-view">
       <MonitorControls
         isMonitoring={isMonitoring}
         hasRequests={filteredRequests.length > 0}
@@ -88,6 +88,6 @@ export function RequestMonitorView({
           onClose={onPreviewClose}
         />
       )}
-    </>
+    </div>
   );
 } 

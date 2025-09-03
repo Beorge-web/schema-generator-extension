@@ -202,40 +202,42 @@ export function App() {
 
   return (
     <div class="container">
-        <Header
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-          onClose={handleClosePopup}
-        />
+      <Header
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        onClose={handleClosePopup}
+      />
       <div class="content">
-      {viewMode === "monitor" && (
-        <RequestMonitorView
-          isMonitoring={isMonitoring}
-          schemaType={schemaType}
-          requestTypeFilter={requestTypeFilter}
-          filter={filter}
-          filteredRequests={filteredListItems}
-          fullRequests={requests}
-          selectedRequest={selectedRequest}
-          currentChunk={currentChunk}
-          totalChunks={totalChunks}
-          onStartMonitoring={handleStartMonitoring}
-          onStopMonitoring={handleStopMonitoring}
-          onClearRequests={handleClearRequests}
-          onSchemaTypeChange={setSchemaType}
-          onRequestTypeFilterChange={setRequestTypeFilter}
-          onFilterChange={handleFilterChange}
-          onPreviewSelect={setSelectedRequest}
-          onPreviewClose={() => setSelectedRequest(null)}
-          onLoadMore={() => fetchRequestChunk(currentTabId!, currentChunk + 1)}
-        />
-      )}
+        {viewMode === "monitor" && (
+          <RequestMonitorView
+            isMonitoring={isMonitoring}
+            schemaType={schemaType}
+            requestTypeFilter={requestTypeFilter}
+            filter={filter}
+            filteredRequests={filteredListItems}
+            fullRequests={requests}
+            selectedRequest={selectedRequest}
+            currentChunk={currentChunk}
+            totalChunks={totalChunks}
+            onStartMonitoring={handleStartMonitoring}
+            onStopMonitoring={handleStopMonitoring}
+            onClearRequests={handleClearRequests}
+            onSchemaTypeChange={setSchemaType}
+            onRequestTypeFilterChange={setRequestTypeFilter}
+            onFilterChange={handleFilterChange}
+            onPreviewSelect={setSelectedRequest}
+            onPreviewClose={() => setSelectedRequest(null)}
+            onLoadMore={() =>
+              fetchRequestChunk(currentTabId!, currentChunk + 1)
+            }
+          />
+        )}
 
-      {viewMode === "custom" && (
-        <CustomJsonView
-          onSchemaTypeChange={setSchemaType}
-          schemaType={schemaType}
-        />
+        {viewMode === "custom" && (
+          <CustomJsonView
+            onSchemaTypeChange={setSchemaType}
+            schemaType={schemaType}
+          />
         )}
       </div>
     </div>
